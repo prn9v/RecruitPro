@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  password  String
+
+  // User profile fields
+  phone     String?
+  location  String?
+  bio       String?
+  skills    String?
+  experience String?
+  education String?
+  
+  // Relations
+  jobs         Job[]
+  applications Application[]
+  accounts     Account[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  title       String
+  department  String
+  location    String
+  salary      String?
+  description String    @db.Text
+  requirements String   @db.Text
+  status      JobStatus @default(ACTIVE)
+  resumeRequired Boolean @default(false)
+  customQuestions Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  publisherId String
+  publisher   User          @relation(fields: [publisherId], references: [id])
+  applications Application[]
+
+  @@map("jobs")
+}
+
+model Application {
+  id        String            @id @default(cuid())
+  status    ApplicationStatus @default(PENDING)
+  answers   Json?
+  resumeUrl String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  
+  // Relations
+  jobId       String
+  applicantId String
+  job         Job  @relation(fields: [jobId], references: [id])
+  applicant   User @relation(fields: [applicantId], references: [id])
+  
+  // Action logs
+  actionLogs ApplicationLog[]
+  
+  @@unique([jobId, applicantId])
+  @@map("applications")
+}
+
+model ApplicationLog {
+  id            String    @id @default(cuid())
+  action        String
+  previousStatus ApplicationStatus?
+  newStatus     ApplicationStatus
+  notes         String?
+  createdAt     DateTime  @default(now())
+  
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id])
+  
+  @@map("application_logs")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum JobStatus {
+  ACTIVE
+  CLOSED
+  DRAFT
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  ON_HOLD
+}
